@@ -1,80 +1,50 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from './src/screens/HomeScreen';
-import CalendarScreen from './src/screens/CalendarScreen';
-import DayScreen from './src/screens/DayScreen';
 import RemindScreen from './src/screens/RemindScreen';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { RemindersProvider } from './src/context/RemindersContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-
-const Tab = createBottomTabNavigator();
-
-const CustomNavigator = () => {
-   return (
-      <Tab.Navigator
-         screenOptions={{
-            tabBarStyle: {
-               backgroundColor: '#333333',
-               borderTopColor: '#333333',
-            },
-            tabBarActiveTintColor: '#ffffff',
-            tabBarInactiveTintColor: '#888888',
-         }}
-      >
-         <Tab.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{
-               headerShown: false,
-               tabBarLabel: 'Home',
-            }}
-         />
-         <Tab.Screen
-            name="Calendar"
-            component={CalendarScreen}
-            options={{
-               headerShown: false,
-               tabBarLabel: 'Calendar',
-            }}
-         />
-         <Tab.Screen
-            name="Day"
-            component={DayScreen}
-            options={{
-               headerShown: false,
-               tabBarLabel: 'Day',
-            }}
-         />
-         <Tab.Screen
-            name="Remind"
-            component={RemindScreen}
-            options={{
-               headerShown: false,
-               tabBarLabel: 'Remind',
-            }}
-         />
-      </Tab.Navigator>
-   );
-};
+const Stack = createStackNavigator();
 
 export default function App() {
-   useEffect(() => {
-      if (Constants.isDevice) {
-         Notifications.requestPermissionsAsync();
-      }
-   }, []);
+  useEffect(() => {
+    if (Constants.isDevice) {
+      Notifications.requestPermissionsAsync();
+    }
+  }, []);
 
-   return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-         <RemindersProvider>
-            <NavigationContainer theme={DarkTheme}>
-               <CustomNavigator />
-            </NavigationContainer>
-         </RemindersProvider>
-      </GestureHandlerRootView>
-   );
+  useEffect(() => {
+    const requestPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (newStatus !== 'granted') {
+          Alert.alert(
+            'Permissions Required',
+            'Please enable notifications permissions in your settings to receive reminders.',
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    };
+
+    requestPermissions();
+  }, []);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <RemindersProvider>
+        <NavigationContainer theme={DarkTheme}>
+          <Stack.Navigator initialRouteName="Home">
+            <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Remind" component={RemindScreen} options={{ headerShown: false }} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </RemindersProvider>
+    </GestureHandlerRootView>
+  );
 }

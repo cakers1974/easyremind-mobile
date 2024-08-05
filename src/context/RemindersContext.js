@@ -12,7 +12,11 @@ const remindersReducer = (state, action) => {
     case 'EDIT_REMINDER':
       return state.map(reminder => reminder.id === action.reminder.id ? action.reminder : reminder);
     case 'DELETE_REMINDER':
-      return state.filter(reminder => reminder.id !== action.date);
+      return state.filter(reminder => reminder.id !== action.id);
+    case 'TOGGLE_REMINDER':
+      return state.map(reminder =>
+        reminder.id === action.id ? { ...reminder, enabled: action.enabled } : reminder
+      );
     default:
       return state;
   }
