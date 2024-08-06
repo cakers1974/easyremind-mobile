@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import { useReminders } from '../context/RemindersContext';
-import uuid from 'react-native-uuid';
+import { useNavigation } from '@react-navigation/native';
+import { remindersService } from '../services/remindersService';
 import { WheelPicker } from 'react-native-ui-lib';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
-const RemindScreen = ({ route, navigation }) => {
-  const { dispatch } = useReminders();
+const RemindScreen = ({ route }) => {
+  const navigation = useNavigation();
   const [title, setTitle] = useState('');
 
   const currentDate = new Date();
@@ -63,17 +62,7 @@ const RemindScreen = ({ route, navigation }) => {
     return unsubscribe;
   }, [navigation]);
 
-  const scheduleNotification = async (title, date) => {
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Reminder',
-        body: title,
-      },
-      trigger: new Date(date),
-    });
-  };
-
-  const saveReminder = async () => {
+  const handleSaveReminder = async () => {
     if (!title.trim()) {
       Alert.alert('Validation Error', 'Please enter a title for the reminder.');
       return;
@@ -95,18 +84,12 @@ const RemindScreen = ({ route, navigation }) => {
 
     try {
       const reminder = {
-        id: editingReminder ? editingReminder.id : uuid.v4(), // Use existing id if editing, otherwise generate a new one
+        id: editingReminder ? editingReminder.id : null,
         title,
         date: date.toISOString(),
       };
 
-      if (editingReminder) {
-        dispatch({ type: 'EDIT_REMINDER', reminder });
-      } else {
-        dispatch({ type: 'ADD_REMINDER', reminder });
-      }
-
-      await scheduleNotification(title, date);
+      await remindersService.saveReminder(reminder);
       Alert.alert('Reminder saved!');
       navigation.navigate('Home');
     } catch (error) {
@@ -223,7 +206,7 @@ const RemindScreen = ({ route, navigation }) => {
         placeholderTextColor="#aaaaaa"
       />
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.saveButton} onPress={saveReminder}>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveReminder}>
           <Text style={styles.saveButtonText}>Save</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.navigate('Home')}>

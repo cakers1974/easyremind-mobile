@@ -1,8 +1,9 @@
 import React, { memo } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
-const ReminderItem = ({ item, onToggle }) => {
+const ReminderItem = ({ item, onToggle, selectionMode, isSelected, onSelectReminder, onLongPress }) => {
   const navigation = useNavigation();
 
   const formatTime = (dateString) => {
@@ -14,23 +15,34 @@ const ReminderItem = ({ item, onToggle }) => {
 
   return (
     <TouchableOpacity 
-      onPress={() => navigation.navigate('Remind', { reminder: item })}
+      onPress={() => selectionMode ? onSelectReminder(item.id) : navigation.navigate('Remind', { reminder: item })}
+      onLongPress={() => onLongPress(item.id)}
       activeOpacity={1} // Prevents the dimming effect
     >
       <View style={styles.reminderItem}>
+        {selectionMode && (
+          <TouchableOpacity 
+            onPress={() => onSelectReminder(item.id)} 
+            style={[styles.checkbox, isSelected && styles.checkboxSelected]}
+          >
+            {isSelected && <Ionicons name="checkmark" size={16} color="#ffffff" />}
+          </TouchableOpacity>
+        )}
         <View style={styles.reminderTextContainer}>
           <Text style={[styles.reminderTitle, textStyle]}>{item.title}</Text>
           <Text style={[styles.reminderTime, textStyle]}>{formatTime(item.date)}</Text>
         </View>
         <Text style={[styles.reminderDate, textStyle]}>{new Date(item.date).toLocaleDateString()}</Text>
-        <View style={styles.toggleContainer}>
-          <Switch
-            value={item.enabled}
-            onValueChange={() => onToggle(item.id, !item.enabled)}
-            trackColor={{ false: '#767577', true: '#81b0ff' }} // Customize track color
-            thumbColor={'#f4f3f4'} // Customize thumb color
-          />
-        </View>
+        {!selectionMode && (
+          <View style={styles.toggleContainer}>
+            <Switch
+              value={item.enabled}
+              onValueChange={() => onToggle(item.id, !item.enabled)}
+              trackColor={{ false: '#767577', true: '#81b0ff' }} // Customize track color
+              thumbColor={'#f4f3f4'} // Customize thumb color
+            />
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -49,6 +61,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxSelected: {
+    backgroundColor: '#1e90ff', // Bluish background color for selected state
   },
   reminderTextContainer: {
     flex: 1,
