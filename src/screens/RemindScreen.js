@@ -90,7 +90,6 @@ const RemindScreen = ({ route }) => {
       };
 
       await remindersService.saveReminder(reminder);
-      Alert.alert('Reminder saved!');
       navigation.navigate('Home');
     } catch (error) {
       console.error('Error saving reminder:', error);
