@@ -5,46 +5,43 @@ import HomeScreen from './src/screens/HomeScreen';
 import RemindScreen from './src/screens/RemindScreen';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { RemindersProvider } from './src/context/RemindersContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const Stack = createStackNavigator();
 
 export default function App() {
-  useEffect(() => {
-    if (Constants.isDevice) {
-      Notifications.requestPermissionsAsync();
-    }
-  }, []);
-
-  useEffect(() => {
-    const requestPermissions = async () => {
-      const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        const { status: newStatus } = await Notifications.requestPermissionsAsync();
-        if (newStatus !== 'granted') {
-          Alert.alert(
-            'Permissions Required',
-            'Please enable notifications permissions in your settings to receive reminders.',
-            [{ text: 'OK' }]
-          );
-        }
+   useEffect(() => {
+      if (Constants.isDevice) {
+         Notifications.requestPermissionsAsync();
       }
-    };
+   }, []);
 
-    requestPermissions();
-  }, []);
+   useEffect(() => {
+      const requestPermissions = async () => {
+         const { status } = await Notifications.getPermissionsAsync();
+         if (status !== 'granted') {
+            const { status: newStatus } = await Notifications.requestPermissionsAsync();
+            if (newStatus !== 'granted') {
+               Alert.alert(
+                  'Permissions Required',
+                  'Please enable notifications permissions in your settings to receive reminders.',
+                  [{ text: 'OK' }]
+               );
+            }
+         }
+      };
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <RemindersProvider>
-        <NavigationContainer theme={DarkTheme}>
-          <Stack.Navigator initialRouteName="Home">
-            <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Remind" component={RemindScreen} options={{ headerShown: false }} />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </RemindersProvider>
-    </GestureHandlerRootView>
-  );
+      requestPermissions();
+   }, []);
+
+   return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+         <NavigationContainer theme={DarkTheme}>
+            <Stack.Navigator initialRouteName="Home">
+               <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+               <Stack.Screen name="Remind" component={RemindScreen} options={{ headerShown: false }} />
+            </Stack.Navigator>
+         </NavigationContainer>
+      </GestureHandlerRootView>
+   );
 }
