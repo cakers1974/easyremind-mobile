@@ -1,25 +1,22 @@
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo, useRef } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const ReminderItem = ({ item, onToggle, onDelete, selectionMode, isSelected, onSelectReminder, onLongPress }) => {
-    const navigation = useNavigation(); // Hook to handle navigation
-    const swipeableRow = useRef(null); // Ref for the Swipeable component
-    const height = useRef(new Animated.Value(115)).current; // Initial height of the item
-    const threshold = 150; // Define a threshold for full swipe
+    const navigation = useNavigation();
+    const swipeableRow = useRef(null);
+    const height = useRef(new Animated.Value(115)).current;
+    const threshold = 150;
 
-    // Helper function to format time
     const formatTime = (dateString) => {
         const options = { hour: '2-digit', minute: '2-digit' };
         return new Date(dateString).toLocaleTimeString([], options);
     };
 
-    // Apply dimmed text style if the reminder is disabled
     const textStyle = item.enabled ? {} : styles.dimmedText;
 
-    // Render the right swipe action with a scaling animation
     const renderRightActions = (progress, dragX) => {
         const scale = dragX.interpolate({
             inputRange: [-threshold, 0],
@@ -35,7 +32,6 @@ const ReminderItem = ({ item, onToggle, onDelete, selectionMode, isSelected, onS
         );
     };
 
-    // Handle the swipe-to-delete action
     const handleSwipeableRightWillOpen = () => {
         Animated.timing(height, {
             toValue: 0,
@@ -58,7 +54,7 @@ const ReminderItem = ({ item, onToggle, onDelete, selectionMode, isSelected, onS
                     <TouchableOpacity 
                         onPress={() => selectionMode ? onSelectReminder(item.id) : navigation.navigate('Remind', { reminder: item })}
                         onLongPress={() => onLongPress(item.id)}
-                        activeOpacity={1} // Prevents the dimming effect
+                        activeOpacity={1}
                     >
                         <View style={styles.reminderItem}>
                             {selectionMode && (
@@ -79,8 +75,8 @@ const ReminderItem = ({ item, onToggle, onDelete, selectionMode, isSelected, onS
                                     <Switch
                                         value={item.enabled}
                                         onValueChange={() => onToggle(item.id, !item.enabled)}
-                                        trackColor={{ false: '#767577', true: '#81b0ff' }} // Customize track color
-                                        thumbColor={'#f4f3f4'} // Customize thumb color
+                                        trackColor={{ false: '#767577', true: '#81b0ff' }}
+                                        thumbColor={'#f4f3f4'}
                                     />
                                 </View>
                             )}
@@ -99,7 +95,7 @@ const styles = StyleSheet.create({
         paddingLeft: 15,
         paddingRight: 15,
         marginVertical: 8,
-        backgroundColor: '#222222', // Darker background color
+        backgroundColor: '#222222',
         borderColor: '#333333',
         borderWidth: 1,
         borderRadius: 8,
@@ -118,28 +114,28 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     checkboxSelected: {
-        backgroundColor: '#1e90ff', // Bluish background color for selected state
+        backgroundColor: '#1e90ff',
     },
     reminderTextContainer: {
         flex: 1,
         paddingRight: 10,
     },
     reminderTitle: {
-        fontSize: 14, // Smaller title font size
+        fontSize: 14,
         color: '#ffffff',
         marginBottom: 4,
     },
     reminderTime: {
-        fontSize: 26, // Larger time font size
+        fontSize: 26,
         color: '#ffffff',
     },
     reminderDate: {
-        fontSize: 16, // Date font size
+        fontSize: 16,
         color: '#ffffff',
         textAlign: 'center',
     },
     dimmedText: {
-        opacity: 0.5, // Dimmed text effect
+        opacity: 0.5,
     },
     toggleContainer: {
         justifyContent: 'center',

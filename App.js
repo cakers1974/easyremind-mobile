@@ -6,27 +6,24 @@ import RemindScreen from './src/screens/RemindScreen';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Alert } from 'react-native'; // Add this import
 
 const Stack = createStackNavigator();
 
 export default function App() {
    useEffect(() => {
-      if (Constants.isDevice) {
-         Notifications.requestPermissionsAsync();
-      }
-   }, []);
-
-   useEffect(() => {
       const requestPermissions = async () => {
-         const { status } = await Notifications.getPermissionsAsync();
-         if (status !== 'granted') {
-            const { status: newStatus } = await Notifications.requestPermissionsAsync();
-            if (newStatus !== 'granted') {
-               Alert.alert(
-                  'Permissions Required',
-                  'Please enable notifications permissions in your settings to receive reminders.',
-                  [{ text: 'OK' }]
-               );
+         if (Constants.isDevice) {
+            const { status } = await Notifications.getPermissionsAsync();
+            if (status !== 'granted') {
+               const { status: newStatus } = await Notifications.requestPermissionsAsync();
+               if (newStatus !== 'granted') {
+                  Alert.alert(
+                     'Permissions Required',
+                     'Please enable notifications permissions in your settings to receive reminders.',
+                     [{ text: 'OK' }]
+                  );
+               }
             }
          }
       };
