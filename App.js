@@ -1,17 +1,34 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from './src/screens/HomeScreen';
-import RemindScreen from './src/screens/RemindScreen';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Alert } from 'react-native'; // Add this import
+import { Alert } from 'react-native';
+import HomeScreen from './src/screens/HomeScreen';
+import RemindScreen from './src/screens/RemindScreen';
+import { remindersService } from './src/services/remindersService';
+import { startBackgroundTask } from './src/services/backgroundTasks';
 
 const Stack = createStackNavigator();
 
+
 export default function App() {
+   
+   console.log(`
+
+
+      
+      
+      
+
+      APPS START`);
+      
    useEffect(() => {
+      remindersService.cleanupDeletedReminders();
+
+      // Request notification permissions when the app mounts
+      // This ensures the app has the necessary permissions to show notifications
       const requestPermissions = async () => {
          if (Constants.isDevice) {
             const { status } = await Notifications.getPermissionsAsync();
@@ -27,8 +44,11 @@ export default function App() {
             }
          }
       };
-
       requestPermissions();
+
+      // Register the background fetch task
+      startBackgroundTask();
+
    }, []);
 
    return (

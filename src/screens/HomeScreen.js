@@ -1,44 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, Text, BackHandler, Animated } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, FlatList, StyleSheet, TouchableOpacity, Text, BackHandler, Animated, Alert } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ReminderItem from '../components/ReminderItem';
 import { remindersService } from '../services/remindersService';
 import uuid from 'react-native-uuid';
 
 const HomeScreen = () => {
+
    const [reminders, setReminders] = useState([]);
    const [nextReminderText, setNextReminderText] = useState('');
    const [selectionMode, setSelectionMode] = useState(false);
    const [selectedReminders, setSelectedReminders] = useState([]);
    const [selectAllChecked, setSelectAllChecked] = useState(false);
-   const [deletedReminders, setDeletedReminders] = useState([]);
+   const [deletedReminderIds, setDeletedReminderIds] = useState([]);
    const [undoBannerVisible, setUndoBannerVisible] = useState(false);
    const [lastDeletedActionId, setLastDeletedActionId] = useState(null);
    const navigation = useNavigation();
    const [bannerHeight] = useState(new Animated.Value(0));
 
    useEffect(() => {
-      const loadInitialReminders = async () => {
-         const initialReminders = await remindersService.loadReminders();
-         setReminders(initialReminders.filter(r => !r.deletedActionId));
-      };
-
-      loadInitialReminders();
-
       const handleRemindersUpdate = (updatedReminders) => {
          setReminders(updatedReminders.filter(r => !r.deletedActionId));
-         const nextReminder = getNextUpcomingReminder(updatedReminders);
-         setNextReminderText(nextReminder ? formatNextReminderTime(nextReminder) : 'No upcoming reminders');
       };
-
       remindersService.onRemindersUpdate(handleRemindersUpdate);
+
+      const loadInitialReminders = async () => {
+         updatedReminders = await remindersService.getReminders();
+         setReminders(updatedReminders.filter(r => !r.deletedActionId));
+      };
+      loadInitialReminders();
 
       return () => {
          remindersService.offRemindersUpdate(handleRemindersUpdate);
       };
    }, []);
 
+
+   // Disable any outdated reminders when the screen comes into focus
+   useFocusEffect(
+      useCallback(() => {
+         remindersService.toggleOutdatedRemindersOff();
+      }, [])
+   );
+
+  
+   // Set the next upcoming reminder text and update it every 5 seconds
+   useEffect(() => {
+      updateNextUpcomingReminder();
+      const intervalId = setInterval(updateNextUpcomingReminder, 5000);
+      return () => clearInterval(intervalId);
+   }, [reminders]);
+
+
+   // When user is in selection mode, the device's back button will escape out of selection mode
    useEffect(() => {
       const backAction = () => {
          if (selectionMode) {
@@ -55,31 +70,37 @@ const HomeScreen = () => {
       return () => backHandler.remove();
    }, [selectionMode]);
 
-   useEffect(() => {
-      const unsubscribe = navigation.addListener('focus', () => {
-         remindersService.cleanupDeletedReminders();
-         setUndoBannerVisible(false);
-      });
 
-      return unsubscribe;
-   }, [navigation]);
-
+   // show the undo deletion banner with sliding animation when the user deletes any reminders.
+   // hide the banner after 10 seconds.
    useEffect(() => {
       Animated.timing(bannerHeight, {
          toValue: undoBannerVisible ? 50 : 0, // Adjust the height value as needed
          duration: 300,
          useNativeDriver: false,
       }).start();
+   
+      if (undoBannerVisible) {
+         const timer = setTimeout(() => {
+            setUndoBannerVisible(false);
+         }, 10000); // 10 seconds
+   
+         return () => clearTimeout(timer);
+      }
    }, [undoBannerVisible]);
 
-   const onToggle = (id, enabled) => {
-      remindersService.toggleReminder(id, enabled);
+
+   const onToggle = (reminder) => {
+      const enable = !reminder.enabled;
+      remindersService.toggleReminders([reminder.id], enable);
    };
+
 
    const handleLongPress = (id) => {
       setSelectionMode(true);
       setSelectedReminders([id]);
    };
+
 
    const handleSelectReminder = (id) => {
       setSelectedReminders((prevSelectedReminders) =>
@@ -94,6 +115,7 @@ const HomeScreen = () => {
       }
    };
 
+
    const handleSelectAll = () => {
       if (selectedReminders.length === reminders.length) {
          setSelectedReminders([]);
@@ -104,28 +126,31 @@ const HomeScreen = () => {
       }
    };
 
-   const handleTurnOn = async () => {
-      await remindersService.toggleMultipleReminders(selectedReminders, true);
+
+   const handleToggleSelectedOn = async () => {
+      await remindersService.toggleReminders(selectedReminders, true);
       setSelectionMode(false);
       setSelectedReminders([]);
       setSelectAllChecked(false);
    };
 
-   const handleTurnOff = async () => {
-      await remindersService.toggleMultipleReminders(selectedReminders, false);
+
+   const handleToggleSelectedOff = async () => {
+      await remindersService.toggleReminders(selectedReminders, false);
       setSelectionMode(false);
       setSelectedReminders([]);
       setSelectAllChecked(false);
    };
+
 
    const handleDelete = async (id) => {
       const actionId = uuid.v4();
       setLastDeletedActionId(actionId);
       await remindersService.deleteReminder(id, actionId);
       if (Array.isArray(id)) {
-         setDeletedReminders(id);
+         setDeletedReminderIds(id);
       } else {
-         setDeletedReminders([id]);
+         setDeletedReminderIds([id]);
       }
       setSelectionMode(false);
       setSelectedReminders([]);
@@ -133,35 +158,63 @@ const HomeScreen = () => {
       setUndoBannerVisible(true);
    };
 
-   const handleUndo = async () => {
+
+   const handleUndoDeletion = async () => {
       await remindersService.undoDeletion(lastDeletedActionId);
       setUndoBannerVisible(false);
    };
 
-   const getNextUpcomingReminder = (reminders) => {
+
+   const updateNextUpcomingReminder = () => {
       const now = new Date();
-      return reminders
-         .filter(reminder => new Date(reminder.date) > now && reminder.enabled)
-         .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+      const upcomingReminder = reminders
+         .filter(reminder => reminder.nextTriggerDate > now && reminder.enabled)
+         .sort((a, b) => new Date(a.nextTriggerDate) - new Date(b.nextTriggerDate))[0];
+   
+      if (upcomingReminder) {
+         const timeText = formatNextReminderTime(upcomingReminder, now);
+         const titleText = upcomingReminder.title;
+         setNextReminderText({ timeText, titleText });
+      } else {
+         setNextReminderText({ timeText: 'No upcoming reminders', titleText: '' });
+      }
    };
 
-   const formatNextReminderTime = (reminder) => {
-      const now = new Date();
-      const diff = new Date(reminder.date) - now;
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-      let timeString = 'Next reminder in ';
-      if (days > 0) timeString += `${days} days `;
-      if (hours > 0) timeString += `${hours} hours `;
-      if (minutes > 0) timeString += `${minutes} minutes`;
-
-      timeString = timeString.trim() + `. ${reminder.title}`;
-
-      return timeString;
+   
+   const formatNextReminderTime = (reminder, now) => {
+      const nextTriggerDate = new Date(reminder.nextTriggerDate);
+      const diffInMilliseconds = nextTriggerDate - now;
+      const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60));
+      const diffInHours = Math.floor(diffInMilliseconds / (1000 * 60 * 60));
+      const diffInDays = Math.floor(diffInMilliseconds / (1000 * 60 * 60 * 24));
+      const diffInMonths = Math.floor(diffInDays / 30);
+   
+      let timeString = 'Reminder in ';
+   
+      const pluralize = (value, unit) => {
+         return `${value} ${unit}${value !== 1 ? 's' : ''}`;
+      };
+   
+      if (diffInMinutes < 1) {
+         // Less than 1 minute
+         timeString += "less than one minute";
+      } else if (diffInHours < 24) {
+         // Less than 24 hours, show hours and minutes
+         if (diffInHours > 0) timeString += `${pluralize(diffInHours, 'hour')} `;
+         const minutes = Math.floor((diffInMilliseconds % (1000 * 60 * 60)) / (1000 * 60));
+         if (minutes > 0) timeString += `${pluralize(minutes, 'minute')}`;
+      } else {
+         // 24 hours or more, show months and days
+         if (diffInMonths > 0) timeString += `${pluralize(diffInMonths, 'month')} `;
+         const remainingDays = diffInDays % 30;
+         if (remainingDays > 0) timeString += `${pluralize(remainingDays, 'day')} `;
+      }
+   
+      // Trim any trailing space and return
+      return timeString.trim();
    };
 
+   
    const renderReminderItem = ({ item }) => (
       <ReminderItem
          item={item}
@@ -178,20 +231,26 @@ const HomeScreen = () => {
       <View style={styles.container}>
          <Animated.View style={[styles.undoBanner, { height: bannerHeight, padding: bannerHeight.interpolate({ inputRange: [0, 50], outputRange: [0, 10] }) }]}>
             <Text style={styles.undoBannerText}>
-               Deleted {deletedReminders.length} reminder{deletedReminders.length > 1 ? 's' : ''}.
+               Deleted {deletedReminderIds.length} reminder{deletedReminderIds.length > 1 ? 's' : ''}.
             </Text>
-            <TouchableOpacity onPress={handleUndo}>
+            <TouchableOpacity onPress={handleUndoDeletion}>
                <Text style={styles.undoBannerUndoText}>Undo</Text>
             </TouchableOpacity>
          </Animated.View>
-         <View style={[styles.upcomingReminder, undoBannerVisible && { marginTop: 0 }]}>
-            <Text style={styles.upcomingReminderText}>
-               {nextReminderText}
-            </Text>
-         </View>
+   
          <FlatList
             ListHeaderComponent={
-               <View style={styles.header}>
+               <View>
+                  <View style={[styles.upcomingReminder, undoBannerVisible && { marginTop: 0 }]}>
+                     <Text style={styles.upcomingReminderText}>
+                        {nextReminderText.timeText}
+                     </Text>
+                     {nextReminderText.titleText !== '' && (
+                        <Text style={styles.upcomingReminderTitleText}>
+                           {nextReminderText.titleText}
+                        </Text>
+                     )}
+                  </View>
                   <View style={styles.actions}>
                      {selectionMode && (
                         <View style={styles.checkboxContainer}>
@@ -215,7 +274,7 @@ const HomeScreen = () => {
                   </View>
                </View>
             }
-            data={reminders.sort((a, b) => new Date(a.date) - new Date(b.date))}
+            data={reminders.sort((a, b) => new Date(a.nextReminderDate) - new Date(b.nextReminderDate))}
             keyExtractor={(item) => item.id}
             renderItem={renderReminderItem}
             extraData={selectedReminders}
@@ -224,14 +283,14 @@ const HomeScreen = () => {
             <View style={styles.selectionActions}>
                <TouchableOpacity
                   style={[styles.selectionButton, { backgroundColor: selectedReminders.length > 0 ? '#007bff' : '#555' }]}
-                  onPress={handleTurnOn}
+                  onPress={handleToggleSelectedOn}
                   disabled={selectedReminders.length === 0}
                >
                   <Text style={styles.selectionButtonText}>Turn on</Text>
                </TouchableOpacity>
                <TouchableOpacity
                   style={[styles.selectionButton, { backgroundColor: selectedReminders.length > 0 ? '#007bff' : '#555' }]}
-                  onPress={handleTurnOff}
+                  onPress={handleToggleSelectedOff}
                   disabled={selectedReminders.length === 0}
                >
                   <Text style={styles.selectionButtonText}>Turn off</Text>
@@ -277,18 +336,23 @@ const styles = StyleSheet.create({
       fontSize: 16,
       textDecorationLine: 'underline', // Add underline
    },
-   header: {
-      marginBottom: 8,
-   },
    upcomingReminder: {
       backgroundColor: '#000000',
       padding: 10,
       borderRadius: 5,
       marginTop: 10, // Added margin to give some space between undoBanner and upcomingReminder
+      alignItems: 'center', // Center align the content
    },
    upcomingReminderText: {
       color: '#ffffff',
-      fontSize: 16,
+      fontSize: 24,
+      textAlign: 'center', // Center the time text
+   },
+   upcomingReminderTitleText: {
+      color: '#bbbbbb', // Slightly dimmed color for the title
+      fontSize: 16, // Smaller font size for the title
+      textAlign: 'center', // Center the title text
+      marginTop: 4, // Add some spacing between time and title
    },
    actions: {
       flexDirection: 'row',
