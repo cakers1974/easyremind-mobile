@@ -19,7 +19,7 @@ const ReminderItem = ({ item: reminder, onToggle, onDelete, selectionMode, isSel
      * @returns {string} - The formatted time string.
      */
     const formatTime = (reminder) => {
-        const date = reminder.nextTriggerDate || reminder.date;
+        const date = reminder.nextReminderDate || reminder.date;
         if( !date) return;
         return format(date, 'h:mm a');
     };

@@ -8,17 +8,16 @@ import { Alert } from 'react-native';
 import HomeScreen from './src/screens/HomeScreen';
 import RemindScreen from './src/screens/RemindScreen';
 import { remindersService } from './src/services/remindersService';
-import { startBackgroundTask } from './src/services/backgroundTasks';
+import { registerBackgroundTask } from './src/services/backgroundTasks';
 
 const Stack = createStackNavigator();
-
 
 export default function App() {
    
    console.log(`
 
 
-      
+
       
       
 
@@ -28,7 +27,6 @@ export default function App() {
       remindersService.cleanupDeletedReminders();
 
       // Request notification permissions when the app mounts
-      // This ensures the app has the necessary permissions to show notifications
       const requestPermissions = async () => {
          if (Constants.isDevice) {
             const { status } = await Notifications.getPermissionsAsync();
@@ -47,7 +45,9 @@ export default function App() {
       requestPermissions();
 
       // Register the background fetch task
-      startBackgroundTask();
+      registerBackgroundTask();
+
+      //remindersService.cancelAllNotifications();
 
    }, []);
 

@@ -168,8 +168,8 @@ const HomeScreen = () => {
    const updateNextUpcomingReminder = () => {
       const now = new Date();
       const upcomingReminder = reminders
-         .filter(reminder => reminder.nextTriggerDate > now && reminder.enabled)
-         .sort((a, b) => new Date(a.nextTriggerDate) - new Date(b.nextTriggerDate))[0];
+         .filter(reminder => reminder.nextReminderDate > now && reminder.enabled)
+         .sort((a, b) => new Date(a.nextReminderDate) - new Date(b.nextReminderDate))[0];
    
       if (upcomingReminder) {
          const timeText = formatNextReminderTime(upcomingReminder, now);
