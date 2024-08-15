@@ -22,7 +22,8 @@ export function parseReminderDates(reminder) {
 // currentDate = (optional) the date to be referenced as the current date and time.
 export function updateReminderTrigger(reminder, currentDate) {
 
-   const {
+   // store existing values in separate object
+   let {
       date,
       month,  // Zero-based month: January = 0, February = 1, etc.
       day,
@@ -34,7 +35,8 @@ export function updateReminderTrigger(reminder, currentDate) {
       prevReminderDate,
       lastAcknowledged,
       continuousAlert,
-      lastTriggerDate
+      lastTriggerDate,
+      enabled,
    } = reminder;
 
    console.log('Called updateReminderTrigger() on reminder ', reminder.title);
@@ -44,105 +46,78 @@ export function updateReminderTrigger(reminder, currentDate) {
 
    const now = currentDate || new Date();
 
-   /*
-   console.log(
-
-
-
-      CurrentDateTime: ${now.toLocaleString()}
-
-      getNextTriggerDate...
-      Date: ${date?.toLocaleString()}
-      Month: ${month}
-      Day: ${day}
-      Hour: ${hour}
-      Minute: ${minute}
-      Weekdays: ${weekdays}
-      Periodicity: ${periodicity}
-      Last Acknowledged: ${lastAcknowledged}
-      Continuous Alert: ${continuousAlert}
-      Last Trigger Date: ${lastTriggerDate}
-
-    );
-   */
-
-
-    let newPrevReminderDate = prevReminderDate;
-
    // if the next reminder date was reached
    if (nextReminderDate && nextReminderDate <= now) {
-      console.log('nextReminderDate <= now');
-      console.log('newPrevReminderDate = nextReminderDate');
-
       // store it as the previous reminder
-      newPrevReminderDate = reminder.prevReminderDate = nextReminderDate;
-      console.log( 'set prevReminderDate = nextReminderDate as ', nextReminderDate?.toLocaleString());
+      prevReminderDate = reminder.prevReminderDate = nextReminderDate;
+      console.log('set prevReminderDate = nextReminderDate as ', nextReminderDate?.toLocaleString());
    }
 
-   if (!reminder.nextReminderDate || reminder.nextReminderDate <= now) {
+   if (!nextReminderDate || (enabled && nextReminderDate <= now)) {
       console.log('!reminder.nextReminderDate || reminder.nextReminderDate <= now');
 
       // Determine nextReminderDate based on periodicity
-      let newReminderDate = null;
-
       switch (periodicity) {
          case 'One-time':
-            newReminderDate = new Date(date.getTime());
-            newReminderDate.setHours(hour, minute, 0, 0);
+            // while this should be a future date, it is not guaranteed with 'one-time' periodicity      
+            nextReminderDate = new Date(date.getTime());
+            nextReminderDate.setHours(hour, minute, 0, 0); 
             break;
 
          case 'Weekdays':
-            newReminderDate = getNextWeekdayTrigger(now, weekdays, hour, minute);
+            nextReminderDate = getNextWeekdayTrigger(now, weekdays, hour, minute);
             break;
 
          case 'Monthly':
-            newReminderDate = new Date(now.getFullYear(), now.getMonth(), Math.min(day, getDaysInMonth(now)), hour, minute);
-            if (newReminderDate <= now) {
-               newReminderDate = addMonths(newReminderDate, 1);
+            nextReminderDate = new Date(now.getFullYear(), now.getMonth(), Math.min(day, getDaysInMonth(now)), hour, minute);
+            if (nextReminderDate <= now) {
+               nextReminderDate = addMonths(nextReminderDate, 1);
             }
             break;
 
          case 'Yearly':
-            newReminderDate = new Date(now.getFullYear(), month, day, hour, minute);
-            if (newReminderDate <= now) {
-               newReminderDate = addYears(newReminderDate, 1);
+            nextReminderDate = new Date(now.getFullYear(), month, day, hour, minute);
+            if (nextReminderDate <= now) {
+               nextReminderDate = addYears(nextReminderDate, 1);
             }
             break;
       }
 
-      reminder.nextReminderDate = newReminderDate;
+      reminder.nextReminderDate = nextReminderDate;
 
-      console.log('newReminderDate:  ', newReminderDate?.toLocaleString());
+      console.log('newReminderDate:  ', nextReminderDate?.toLocaleString());
    }
 
-   // If no prevReminderDate occurred then the very first reminder date has not been reached.
-   if( !newPrevReminderDate ) {
-      console.log('Set nextTriggerDate to 5 minutes after nextReminderDate and exiting updateReminderTrigger()');
+   if( !enabled ) {
+      console.log('Reminder is disabled.  Setting nextTriggerDate to null');
+      reminder.nextTriggerDate = null;
+      return;
+   }
 
-      // return a nextTriggerDate of 5 minutes
-      reminder.nextTriggerDate = addMinutes( reminder.nextReminderDate, 5);
+   // if there is no previous reminder date or continuous alerts for this reminder is not on
+   if( !prevReminderDate || !continuousAlert ) {
+      reminder.nextTriggerDate = nextReminderDate > now ? nextReminderDate : null;
+      console.log( 'there is no previous reminder date or continuous alerts for this reminder is not on.  Setting nextTriggerDate: ', reminder.nextTriggerDate?.toLocaleString());
       return;
    }
 
    // Handle continuous alerts every 5 minutes and determine nextTriggerDate.
    // Continuous alerts are limited to 6 alerts in 30 minutes, but we calculate
-   // up to 34 minutes to account for background tasks being delayed.
+   // up to 34 minutes to account for background tasks possibly being delayed.
    // 
-   // The conditions reads:  "If continuous alerts is on and a reminder was
-   //    previously invoked not more than 34 minutes ago and the user has not
-   //    yet acknowledged the reminder"
-   //
    // Because lastAcknowledged may be initialized for a reminder invocation that
    // preceeded prevReminderDate, the test, lastAcknowledged < prevReminderDate,
-   // will confirm that it does not pertain to the latest prevReminderDate.
-   if (continuousAlert && differenceInMinutes(now, newPrevReminderDate) <= 34 && (!lastAcknowledged || lastAcknowledged < newPrevReminderDate)) {
+   // will confirm if it does not pertain to the latest prevReminderDate.
+
+   // If the reminder was previously invoked not more than 34 minutes ago and the user has not yet acknowledged the reminder
+   if (differenceInMinutes(now, prevReminderDate) <= 34 && (!lastAcknowledged || lastAcknowledged < prevReminderDate)) {
       console.log('checking continuous alert');
-      
+
       // if the last trigger date pertains to the previous reminder and was invoked less than 30 minutes after the reminder
-      if (lastTriggerDate >= newPrevReminderDate && differenceInMinutes(lastTriggerDate, newPrevReminderDate) < 30) {
+      if (lastTriggerDate >= prevReminderDate && differenceInMinutes(lastTriggerDate, prevReminderDate) < 30) {
          console.log('the last trigger date pertains to the previous reminder and was invoked less than 30 minutes after the reminder');
 
-         // assure that the next continue trigger is at least 5 minutes after the last invocation
+         // assure that the next trigger is at least 5 minutes after the last notification
          let nextTriggerDate = addMinutes(lastTriggerDate, 5);
 
          console.log('added 5 minutes to lastTriggerDate');
@@ -157,13 +132,13 @@ export function updateReminderTrigger(reminder, currentDate) {
          console.log('assigned nextTriggerDate to be 5 minutes after lastTriggerDate');
       } else {
          // no more continuous alerts are due, move to the nextReminderDate only if it's been updated above to be in the future
-         reminder.nextTriggerDate = reminder.nextReminderDate > now ? reminder.nextReminderDate : null;
+         reminder.nextTriggerDate = nextReminderDate > now ? nextReminderDate : null;
 
          console.log('Continuous alert check showed no alerts.  Set nextTriggerDate to nextReminderDate or null if not in the future');
       }
    } else {
-         // no more continuous alerts are due, move to the nextReminderDate only if it's been updated above to be in the future
-         reminder.nextTriggerDate = reminder.nextReminderDate > now ? reminder.nextReminderDate : null;
+      // no more continuous alerts are due, move to the nextReminderDate only if it's been updated above to be in the future
+      reminder.nextTriggerDate = nextReminderDate > now ? nextReminderDate : null;
 
       console.log('No continuous alerts, set nextTriggerDate to nextReminderDate or null if not in the future');
    }
@@ -196,15 +171,15 @@ export async function executeTriggers(currentTime) {
    let reminders = JSON.parse(await AsyncStorage.getItem('reminders')) || [];
 
    // Filter reminders that are enabled and serialize their trigger dates
-   const notifications = reminders.filter(reminder => reminder.enabled && !reminder.deletedActionId)  // filter for enabled and not deleted
+   const notifications = reminders.filter(reminder => !reminder.deletedActionId)  // filter for enabled and not deleted
       .map(parseReminderDates)  // next serialize the dates in to javascript date objects
       .filter(r => r.nextTriggerDate < now);  // filter where the nextTriggerDate has been reached
 
    // Iterate through the reminders
    for (const reminder of notifications) {
       // if a notification was not already scheduled for this trigger date
-      if (reminder.lastTriggerDate !== reminder.nextTriggerDate) {
-         
+      if (reminder.lastTriggerDate < reminder.nextTriggerDate) {
+
          console.log('executeTriggers() scheduled reminder for ', reminder.title, ' when lastTriggerDate was ', reminder.lastTriggerDate?.toLocaleString(), ' and nextTriggerDate was ', reminder.nextTriggerDate?.toLocaleString());
 
          // Dismiss any existing notification

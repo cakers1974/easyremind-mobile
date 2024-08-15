@@ -1,3 +1,5 @@
+// index.js
+
 import { registerRootComponent } from 'expo';
 import * as Notifications from 'expo-notifications';
 import App from './App';

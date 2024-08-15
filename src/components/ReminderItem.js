@@ -1,3 +1,5 @@
+// src/components/ReminderItem.js
+
 import React, { memo, useRef } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';

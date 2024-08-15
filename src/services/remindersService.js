@@ -1,3 +1,5 @@
+// src/services/remindersService.js
+
 import * as Notifications from 'expo-notifications';
 import uuid from 'react-native-uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,8 +23,8 @@ export const remindersService = {
       // set the next trigger date
       updateReminderTrigger(r);
 
-      if (!r.nextTriggerDate) {
-         throw new Error('Unable to determine the next trigger date. Reminder not saved.');
+      if (!r.nextTriggerDate || r.nextTriggerDate <= new Date()) {
+         throw new Error('Unable to determine the next trigger date, or next trigger date was in the past. Reminder not saved.');
       }
 
       // If the reminder has an existing notification identifier, dismiss the existing notification
@@ -84,6 +86,8 @@ export const remindersService = {
                      reminder.date = new Date(reminder.date);
                      reminder.date.setDate(reminder.date.getDate() + 1); // Move to the next day
                   }
+
+                  reminder.enabled = true;
 
                   // Schedule the notification only if enabling a previously disabled reminder
                   updateReminderTrigger(reminder);

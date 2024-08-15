@@ -1,11 +1,14 @@
+// src/screens/RemindScreen.js
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { remindersService } from '../services/remindersService';
+import { updateReminderTrigger } from '../services/reminderUtils';
 import ScrollPicker from 'react-native-wheel-scrollview-picker';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import ModalSelector from 'react-native-modal-selector'; // Importing ModalSelector
+import ModalSelector from 'react-native-modal-selector';
 
 
 const RemindScreen = ({ route }) => {
@@ -152,8 +155,27 @@ const RemindScreen = ({ route }) => {
          weekdays: selectedDays,    // Set the weekdays array (if applicable)
          periodicity,               // Set the periodicity ('One-time', 'Weekdays', 'Monthly', 'Yearly')
          continuousAlert,
+         enabled: true,
          notificationId: notificationId || null, // Include notificationId if it exists
+         lastTriggerDate: null,
+         nextTriggerDate: null,
+         lastAcknowledged: null,
+         prevReminderDate: null,
+         nextReminderDate: null
       };
+
+      // check for a common mistake
+      if( periodicity === "Weekdays" && selectedDays.length === 0) {
+         Alert.alert("", 'Select the days of the week for the reminder to occur.');
+         return;
+      }
+
+      // make sure that the reminder is a future date
+      updateReminderTrigger(reminder);
+      if( !reminder.nextTriggerDate || reminder.nextReminderDate <= new Date() ) {
+         Alert.alert("", "Please specify a reminder time that is in the future.");
+         return;
+      }
 
       try {
          // Save the reminder using the remindersService
@@ -297,21 +319,27 @@ const RemindScreen = ({ route }) => {
          case 'Weekdays':
             return (
                <View style={styles.weekdaysContainer}>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                     <TouchableOpacity
-                        key={day}
-                        style={[
-                           styles.weekday,
-                           selectedDays.includes(day) && styles.selectedWeekday
-                        ]}
-                        onPress={() => toggleDaySelection(day)}
-                     >
-                        <Text style={[styles.weekdayText, selectedDays.includes(day) && styles.weekdayTextSelected]}>{day}</Text>
-                     </TouchableOpacity>
-                  ))}
+                   <View style={styles.weekdayButtonsContainer}>
+                       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                           <TouchableOpacity
+                               key={day}
+                               style={[
+                                   styles.weekday,
+                                   selectedDays.includes(day) && styles.selectedWeekday
+                               ]}
+                               onPress={() => toggleDaySelection(day)}
+                           >
+                               <Text style={[styles.weekdayText, selectedDays.includes(day) && styles.weekdayTextSelected]}>{day}</Text>
+                           </TouchableOpacity>
+                       ))}
+                   </View>
+
+                   {selectedDays.length === 0 && (
+                       <Text style={styles.noDaysSelectedText}>no days selected</Text>
+                   )}
                </View>
-            );
-         case 'Monthly':
+           );
+          case 'Monthly':
             return (
                <View style={styles.monthlyContainer}>
                   <Text style={{ ...styles.label, marginTop: 8 }}>Day of the month:</Text>
@@ -578,9 +606,14 @@ const styles = StyleSheet.create({
       marginTop: 3,
    },
    weekdaysContainer: {
+      alignItems: 'center',  // Ensures items are centered vertically
+      width: '100%',
+   },
+   weekdayButtonsContainer: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-   },
+      width: '100%',  // Ensure the buttons take up full width
+  },
    weekday: {
       padding: 7,
       paddingTop: 5,
@@ -601,6 +634,13 @@ const styles = StyleSheet.create({
    },
    weekdayTextSelected: {
       color: '#ffffff',
+   },
+   noDaysSelectedText: {
+      fontSize: 12,
+      color: 'red',
+      marginTop: 3,
+      textAlign: 'center',
+      width: '100%', // Ensures the text takes up the full width
    },
    monthlyContainer: {
       flexDirection: 'row',

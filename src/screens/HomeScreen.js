@@ -1,3 +1,5 @@
+// src/screens/HomeScreen.js
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, TouchableOpacity, Text, BackHandler, Animated, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -16,8 +18,9 @@ const HomeScreen = () => {
    const [deletedReminderIds, setDeletedReminderIds] = useState([]);
    const [undoBannerVisible, setUndoBannerVisible] = useState(false);
    const [lastDeletedActionId, setLastDeletedActionId] = useState(null);
-   const navigation = useNavigation();
+   const [undoTimer, setUndoTimer] = useState(null); // Timer state to handle reset of the banner visibility timer
    const [bannerHeight] = useState(new Animated.Value(0));
+   const navigation = useNavigation();
 
    useEffect(() => {
       const handleRemindersUpdate = (updatedReminders) => {
@@ -28,6 +31,9 @@ const HomeScreen = () => {
       const loadInitialReminders = async () => {
          updatedReminders = await remindersService.getReminders();
          setReminders(updatedReminders.filter(r => !r.deletedActionId));
+
+         // disable any reminders that are now in the past
+         remindersService.toggleOutdatedRemindersOff();
       };
       loadInitialReminders();
 
@@ -72,21 +78,20 @@ const HomeScreen = () => {
 
 
    // show the undo deletion banner with sliding animation when the user deletes any reminders.
-   // hide the banner after 10 seconds.
    useEffect(() => {
       Animated.timing(bannerHeight, {
-         toValue: undoBannerVisible ? 50 : 0, // Adjust the height value as needed
+         toValue: undoBannerVisible ? 50 : 0,
          duration: 300,
          useNativeDriver: false,
       }).start();
-   
-      if (undoBannerVisible) {
-         const timer = setTimeout(() => {
-            setUndoBannerVisible(false);
-         }, 10000); // 10 seconds
-   
-         return () => clearTimeout(timer);
-      }
+
+      // Clear the timer when the component unmounts if one was
+      //set by handleDelete (to hide the banner after 10 seconds)
+      return () => {
+         if (undoTimer) {
+            clearTimeout(undoTimer);
+         }
+      };
    }, [undoBannerVisible]);
 
 
@@ -144,24 +149,46 @@ const HomeScreen = () => {
 
 
    const handleDelete = async (id) => {
-      const actionId = uuid.v4();
+      const actionId = lastDeletedActionId || uuid.v4(); // Reuse the lastDeletedActionId if banner is visible
       setLastDeletedActionId(actionId);
+
+      // Merge deleted reminder IDs.  If the undo banner closed (after 10 seconds) from a previous delete
+      // then the timer will have wiped out any previous deletes from the array.
+      const newDeletedIds = Array.isArray(id) ? id : [id];
+      setDeletedReminderIds(prevDeletedIds => [...prevDeletedIds, ...newDeletedIds]);
+
       await remindersService.deleteReminder(id, actionId);
-      if (Array.isArray(id)) {
-         setDeletedReminderIds(id);
-      } else {
-         setDeletedReminderIds([id]);
-      }
+
+      // reset selection state
       setSelectionMode(false);
       setSelectedReminders([]);
       setSelectAllChecked(false);
+
       setUndoBannerVisible(true);
+
+      // If a timer exists, clear it before starting a new one
+      if (undoTimer) {
+         clearTimeout(undoTimer);
+      }
+
+      // Start a new 10-second timer
+      const timer = setTimeout(() => {
+         setUndoBannerVisible(false);
+
+         // Reset the delete state
+         setDeletedReminderIds([]);
+         setLastDeletedActionId(null);
+      }, 10000); // 10 seconds
+
+      setUndoTimer(timer); // Store the new timer
    };
 
 
    const handleUndoDeletion = async () => {
       await remindersService.undoDeletion(lastDeletedActionId);
       setUndoBannerVisible(false);
+      setDeletedReminderIds([]);
+      setLastDeletedActionId(null);
    };
 
 
