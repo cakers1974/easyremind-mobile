@@ -110,10 +110,10 @@ const ReminderItem = ({ item: reminder, onToggle, onDelete, selectionMode, isSel
                               <Text style={[styles.reminderTitle, textStyle]}>{reminder.title}</Text>
                               <Text style={[styles.reminderTime, textStyle]}>{formatTime(reminder)}</Text>
 
-                              {/* Debugging: Display nextTriggerDate */}
-                              <Text style={styles.debugText}>
+                              {/* Debugging: Display nextTriggerDate
+                              <Text style={{ fontSize: 12, color: 'gray', marginTop: 4 }}>
                                   {`${reminder.nextTriggerDate ? new Date(reminder.nextTriggerDate).toLocaleString() : 'N/A'}`}
-                              </Text>
+                              </Text> */}
                           </View>
                           <Text style={[styles.reminderDate, textStyle]}>{formatDateOrPeriodicity(reminder)}</Text>
                           {!selectionMode && (
@@ -210,11 +210,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#ffffff',
     },
-    debugText: {  // Debugging: Styles for the debugging text
-      fontSize: 12,
-      color: 'gray',
-      marginTop: 4,
-  },
 });
 
 export default memo(ReminderItem);

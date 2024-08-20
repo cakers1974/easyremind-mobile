@@ -128,13 +128,6 @@ export const remindersService = {
    },
 
 
-   canToggleOn: (reminder) => {
-      const r = { ...reminder };
-      updateReminderTrigger(r);
-      return r.nextReminderDate !== null;
-   },
-
-
    // Load all reminders from storage
    getReminders: async () => {
       const reminders = JSON.parse(await AsyncStorage.getItem(STORAGE_KEY)) || [];
@@ -233,7 +226,7 @@ export const remindersService = {
       // Update reminders where enabled is true and nextTriggerDate is null
       reminders = reminders.map(reminder => {
          parseReminderDates(reminder);
-         if (reminder.enabled && (reminder.nextReminderDate === null || reminder.nextReminderDate < now)) {
+         if (reminder.enabled && reminder.periodicity === 'One-time' && (reminder.nextReminderDate === null || reminder.nextReminderDate < now)) {
             reminder.enabled = false;
             hasChanges = true;
          }

@@ -49,7 +49,7 @@ export default function App() {
       // Register the background fetch task
       registerBackgroundTask();
 
-      //remindersService.cancelAllNotifications();
+      //remindersService.cancelAllNotifications();  // for debugging purposes
 
    }, []);
 

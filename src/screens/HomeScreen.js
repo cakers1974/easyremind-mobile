@@ -102,23 +102,31 @@ const HomeScreen = () => {
 
 
    const handleLongPress = (id) => {
-      setSelectionMode(true);
       setSelectedReminders([id]);
+      setSelectAllChecked(false);
+      setSelectionMode(true);
    };
 
 
    const handleSelectReminder = (id) => {
-      setSelectedReminders((prevSelectedReminders) =>
-         prevSelectedReminders.includes(id)
+      setSelectedReminders((prevSelectedReminders) => {
+         const updatedReminders = prevSelectedReminders.includes(id)
             ? prevSelectedReminders.filter((reminderId) => reminderId !== id)
-            : [...prevSelectedReminders, id]
-      );
-      if (selectedReminders.length + 1 === reminders.length) {
-         setSelectAllChecked(true);
-      } else {
-         setSelectAllChecked(false);
-      }
+            : [...prevSelectedReminders, id];
+   
+         // Check if all reminders are selected after the update
+         setSelectAllChecked(updatedReminders.length === reminders.length);
+   
+         return updatedReminders;
+      });
    };
+
+
+   const handleOptionButtonPress = () => {
+      setSelectedReminders([]);
+      setSelectAllChecked(false);
+      setSelectionMode(!selectionMode);
+   }
 
 
    const handleSelectAll = () => {
@@ -280,22 +288,19 @@ const HomeScreen = () => {
                   </View>
                   <View style={styles.actions}>
                      {selectionMode && (
-                        <View style={styles.checkboxContainer}>
-                           <TouchableOpacity
-                              onPress={handleSelectAll}
-                              style={[styles.checkbox, selectAllChecked && styles.checkboxSelected]}
-                           >
+                        <TouchableOpacity onPress={handleSelectAll} style={styles.checkboxContainer}>
+                           <View style={[styles.checkbox, selectAllChecked && styles.checkboxSelected]}>
                               {selectAllChecked && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                           </TouchableOpacity>
+                           </View>
                            <Text style={styles.selectAllText}>Select All</Text>
-                        </View>
+                        </TouchableOpacity>
                      )}
                      <View style={styles.buttonGroup}>
                         <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('Remind', { reset: true })}>
                            <Ionicons name="add" size={24} color="#ffffff" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.optionsButton} onPress={() => {/* Handle options menu */ }}>
-                           <Ionicons name="ellipsis-vertical" size={24} color="#ffffff" />
+                        <TouchableOpacity style={styles.optionsButton} onPress={() => handleOptionButtonPress()}>
+                           <Ionicons name="ellipsis-vertical" size={24} color={reminders.length ? "#fff" : "#333"} />
                         </TouchableOpacity>
                      </View>
                   </View>

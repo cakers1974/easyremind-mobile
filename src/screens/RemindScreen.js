@@ -20,7 +20,7 @@ const RemindScreen = ({ route }) => {
    currentDate.setSeconds(0, 0);
    const [selectedDate, setSelectedDate] = useState(currentDate);
    const [selectedHour, setSelectedHour] = useState(currentDate.getHours() % 12 || 12);
-   const [selectedMinute, setSelectedMinute] = useState(currentDate.getMinutes());
+   const [selectedMinute, setSelectedMinute] = useState(0);
    const [selectedAmPm, setSelectedAmPm] = useState(currentDate.getHours() >= 12 ? 'PM' : 'AM');
    const [showDatePicker, setShowDatePicker] = useState(false);
    const [periodicity, setPeriodicity] = useState('One-time');
@@ -37,7 +37,7 @@ const RemindScreen = ({ route }) => {
    const [editingReminder, setEditingReminder] = useState(null);
 
    const hours = Array.from({ length: 12 }, (_, i) => (i + 1));
-   const minutes = Array.from({ length: 60 }, (_, i) => (i.toString().padStart(2, '0')));
+   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
    const ampm = ['AM', 'PM'];
    const daysInMonth = Array.from({ length: 31 }, (_, i) => ({ key: i + 1, label: `${i + 1}` }));
    const months = [
@@ -90,13 +90,13 @@ const RemindScreen = ({ route }) => {
          // Set editingReminder to the current reminder
          setEditingReminder(reminder);
 
-         setForceHourRerender(3);
-         setForceMinuteRerender(4);
-         setForceAmPmRerender(5);
-
       } else if (route.params?.reset) {
          resetFields();
       }
+      
+      setForceHourRerender(3);
+      setForceMinuteRerender(4);
+      setForceAmPmRerender(5);
    }, [route.params]);
 
 
@@ -104,30 +104,38 @@ const RemindScreen = ({ route }) => {
       setTitle('');
       setPeriodicity('One-time');
 
-      // Get the current date and time
-      const currentDate = new Date();
-      currentDate.setSeconds(0, 0);
+      const now = new Date();
+      now.setSeconds(0, 0);
 
-      // Determine the current hour and AM/PM
-      const hour = currentDate.getHours();
-      const amPm = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour % 12 || 12;
+      // Determine the next nearest 5-minute increment
+      const currentMinutes = now.getMinutes();
+      let newMinutes = Math.ceil(currentMinutes / 5) * 5;
+      // Check if the new minute increment pushes into the next hour
+      if (newMinutes === 60) {
+         newMinutes = 0;
+         now.setHours(now.getHours() + 1);
+      }
 
-      // Set the state variables to the current date and time
-      setSelectedDate(currentDate);
-      setSelectedMonth(currentDate.getMonth());
-      setSelectedDay(currentDate.getDate());
+      // if time is before 7am, have it default to 7am
+      if( now.getHours() >=0 && now.getHours() < 7) {
+         now.setHours(7);
+      }
+
+      const newHour = now.getHours();
+      const amPm = newHour >= 12 ? 'PM' : 'AM';
+      const displayHour = newHour % 12 || 12;
+
+      // Set state variables based on the updated time
       setSelectedHour(displayHour);
-      setSelectedMinute(currentDate.getMinutes());
+      setSelectedMinute(newMinutes);
       setSelectedAmPm(amPm);
 
-      // Reset the selected days array
+      // Set other fields as normal
+      setSelectedDate(now);
+      setSelectedMonth(now.getMonth());
+      setSelectedDay(now.getDate());
       setSelectedDays([]);
-
-      // reset continuous alert toggle
       setContinuousAlert(false);
-
-      // Clear the editing reminder state
       setEditingReminder(null);
    };
 
@@ -173,7 +181,7 @@ const RemindScreen = ({ route }) => {
       // make sure that the reminder is a future date
       updateReminderTrigger(reminder);
       if( !reminder.nextTriggerDate || reminder.nextReminderDate <= new Date() ) {
-         Alert.alert("", "Please specify a reminder time that is in the future.");
+         Alert.alert("", `Please specify a reminder time that is in the future.\n\nThe current date and time is\n${new Date().toLocaleString()}`);
          return;
       }
 
@@ -416,7 +424,13 @@ const RemindScreen = ({ route }) => {
          <TextInput
             style={styles.input}
             value={title}
-            onChangeText={setTitle}
+            maxLength={30}
+            onChangeText={(text) => {
+               if (text.length >= 30) {
+                 Alert.alert('', 'You have reached the maximum character limit of 30.');
+               }
+               setTitle(text);
+             }}
             placeholder="What should I remind you about?"
             placeholderTextColor="#aaaaaa"
          />
@@ -440,7 +454,7 @@ const RemindScreen = ({ route }) => {
                <ScrollPicker
                   key={forceMinuteRerender} // needed to force a one-time rerendering
                   dataSource={minutes}
-                  selectedIndex={selectedMinute}
+                  selectedIndex={Math.floor(selectedMinute / 5)} // Convert the minute to an index in the 5-minute increment array
                   onValueChange={(data, selectedIndex) => {
                      setSelectedMinute(parseInt(data));
                   }}
